@@ -6,6 +6,8 @@
 local worldpath = minetest.get_worldpath()
 local file_path = worldpath.."/bookmarks_v2"
 
+local pos_to_string = vector.pos_to_string or minetest.pos_to_string
+
 local function rnd(za)
 	return math.floor(za*10+0.5)/10
 end
@@ -93,8 +95,7 @@ minetest.register_chatcommand("listgo", {
 		end
 		local info = ""
 		for go, coords in pairs(GONETWORK) do
-			local pos = coords[1]
-			info = info.."/go "..go.. " at ("..pos.x.." | "..pos.y.." | "..pos.z..")\r"
+			info = info.."/go "..go.. " at "..pos_to_string(coords[1]).."\n"
 		end
 		return true, info
 	end,
@@ -135,15 +136,3 @@ if gonfile then
 end
 
 --]]
-
---[[local write_gofile = function()
-	local output = ""						--	WRITE CHANGES TO FILE
-	for name, coords in pairs(GONETWORK) do
-		local pos = coords[1]
-		local dir = coords[2]
-		output = output..name.."("..pos.x.."|"..pos.y.."|"..pos.z..")["..dir.yaw..", "..dir.pitch.."]\n"
-	end
-	local f = io.open(worldpath.."/bookmarks.go", "w")
-	f:write(output)
-	io.close(f)
-end]]
