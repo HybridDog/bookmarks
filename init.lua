@@ -3,27 +3,110 @@
 --		go										**************************************************
 -- ***********************************************************************************
 
+local worldpath = minetest.get_worldpath()
+local file_path = worldpath.."/bookmarks_v2"
+
 local function rnd(za)
 	return math.floor(za*10+0.5)/10
 end
 
-local write_gofile = function()
-	local output = ''						--	WRITE CHANGES TO FILE
-	for name, coords in pairs(GONETWORK) do
-		local pos = coords[1]
-		local dir = coords[2]
-		output = output..name..'('..pos.x..'|'..pos.y..'|'..pos.z..')['..dir.yaw..", "..dir.pitch..']\n'
-	end
-	local f = io.open(minetest.get_worldpath()..'/bookmarks.go', "w")
-	f:write(output)
+-- saves GONETWORK to file
+local function write_gofile()
+	local f = io.open(file_path, "w")
+	f:write(minetest.compress(minetest.serialize(GONETWORK)))
 	io.close(f)
 end
 
-
-GONETWORK = {}
-local gonfile = io.open(minetest.get_worldpath()..'/bookmarks.go', "r")
+-- load GONETWORK from file
+local gonfile = io.open(file_path, "rb")
 if gonfile then
-	local contents = gonfile:read('*all')
+	local contents = gonfile:read("*all")
+	io.close(gonfile)
+	if contents
+	and contents ~= "" then
+		GONETWORK = minetest.deserialize(minetest.decompress(contents))
+	end
+end
+
+GONETWORK = GONETWORK or {}
+
+minetest.register_chatcommand("setgo", {
+	params = "<name>",
+	description = "set /go destination",
+	privs = {server=true},
+	func = function(name, param)
+		local target = minetest.get_player_by_name(name)
+		if not target then
+			return false, "Are you a player?"
+		end
+		local np = target:getpos()
+		GONETWORK[param] = {
+			{x=rnd(np.x), y=rnd(np.y), z=rnd(np.z)},
+			{yaw=rnd(target:get_look_yaw()), pitch=rnd(target:get_look_pitch())}
+		}
+		write_gofile()
+		return true, "/go "..param.." set"
+	end,
+})
+
+minetest.register_chatcommand("go", {
+	params = "<goname>",
+	description = "go to destination",
+	func = function(name, target)
+		local second_choice = next(GONETWORK)
+		if not second_choice then
+			return false, "currently there are no destinations in GONETWORK"
+		end
+		local dest = GONETWORK[target]
+		if not dest then
+			target = second_choice
+			dest = GONETWORK[target]
+		end
+		minetest.get_player_by_name(name):moveto(dest[1])
+		print(dest[2].yaw)
+		--teleportee:set_look_yaw(dest[2].yaw)
+		--teleportee:set_look_pitch(dest[2].pitch)
+		return true, "you're at "..target
+	end,
+})
+
+minetest.register_chatcommand("delgo", {
+	params = "<name>",
+	description = "delete /go destination",
+	privs = {server=true},
+	func = function(name, param)
+		if GONETWORK[param] then
+			GONETWORK[param] = nil
+			write_gofile()
+			return true, "/go "..param.." removed"
+		end
+		return false, "Something failed…"
+	end,
+})
+
+minetest.register_chatcommand("listgo", {
+	params = "<goname>",
+	description = "list all go destinations",
+	func = function(name)
+		if not next(GONETWORK) then
+			return false, "currently there are no destinations in GONETWORK"
+		end
+		local info = ""
+		for go, coords in pairs(GONETWORK) do
+			local pos = coords[1]
+			info = info.."/go "..go.. " at ("..pos.x.." | "..pos.y.." | "..pos.z..")\r"
+		end
+		return true, info
+	end,
+})
+
+
+-- [[ legacy
+
+local oldpath = worldpath.."/bookmarks.go"
+local gonfile = io.open(oldpath, "r")
+if gonfile then
+	local contents = gonfile:read("*all")
 	io.close(gonfile)
 	if contents then
 		local lines = string.split(contents, "]\n")
@@ -47,64 +130,20 @@ if gonfile then
 			end
 		end
 	end
+	write_gofile()
+	os.remove(oldpath)
 end
-minetest.register_chatcommand("setgo", {
-	params = "<name>",
-	description = "set /go destination",
-	privs = {server=true},
-	func = function(name, param)
-		local target = minetest.get_player_by_name(name)
-		if target then
-			local np = target:getpos()
-			local tab = {
-				{x=rnd(np.x), y=rnd(np.y), z=rnd(np.z)},
-				{yaw=rnd(target:get_look_yaw()), pitch=rnd(target:get_look_pitch())}
-			}
-			GONETWORK[param] = tab
-			write_gofile()
-			minetest.chat_send_player(name, "/go "..param.." set")
-		end
-	end,
-})
-minetest.register_chatcommand("go", {
-	params = "<goname>",
-	description = "go to destination",
-	func = function(name, param)
-		local dest = GONETWORK[param]
-		if dest == nil then
-			minetest.chat_send_player(name, "no such destination")
-			return
-		end
-		minetest.get_player_by_name(name):moveto(dest[1])
-		print(dest[2].yaw)
-		--teleportee:set_look_yaw(dest[2].yaw)
-		--teleportee:set_look_pitch(dest[2].pitch)
-	end,
-})
-minetest.register_chatcommand("delgo", {
-	params = "<name>",
-	description = "delete /go destination",
-	privs = {server=true},
-	func = function(name, param)
-		if GONETWORK[param] then
-			GONETWORK[param] = nil
-			write_gofile()
-			minetest.chat_send_player(name, "/go "..param.." removed")
-		end
-	end,
-})
-minetest.register_chatcommand("listgo", {
-	params = "<goname>",
-	description = "list all go destinations",
-	func = function(name)
-		local info = ""
-		for go, coords in pairs(GONETWORK) do
-			local pos = coords[1]
-			info = info.."/go "..go.. ' at ('..pos.x..' | '..pos.y..' | '..pos.z..')\n'
-		end
-		if info == "" then
-			info = 'currently there are no destinations in GONETWORK'
-		end
-		minetest.chat_send_player(name, info)
-	end,
-})
+
+--]]
+
+--[[local write_gofile = function()
+	local output = ""						--	WRITE CHANGES TO FILE
+	for name, coords in pairs(GONETWORK) do
+		local pos = coords[1]
+		local dir = coords[2]
+		output = output..name.."("..pos.x.."|"..pos.y.."|"..pos.z..")["..dir.yaw..", "..dir.pitch.."]\n"
+	end
+	local f = io.open(worldpath.."/bookmarks.go", "w")
+	f:write(output)
+	io.close(f)
+end]]
