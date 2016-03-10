@@ -30,7 +30,7 @@ if gonfile then
 	end
 end
 
-GONETWORK = GONETWORK or {}
+GONETWORK = rawget(_G, "GONETWORK") or {}
 
 minetest.register_chatcommand("setgo", {
 	params = "<name>",
