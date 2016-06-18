@@ -22,7 +22,7 @@ end
 -- load GONETWORK from file
 local gonfile = io.open(file_path, "rb")
 if gonfile then
-	local contents = gonfile:read("*all")
+	local contents = gonfile:read"*all"
 	io.close(gonfile)
 	if contents
 	and contents ~= "" then
@@ -107,7 +107,7 @@ minetest.register_chatcommand("listgo", {
 local oldpath = worldpath.."/bookmarks.go"
 local gonfile = io.open(oldpath, "r")
 if gonfile then
-	local contents = gonfile:read("*all")
+	local contents = gonfile:read"*all"
 	io.close(gonfile)
 	if contents then
 		local lines = string.split(contents, "]\n")
