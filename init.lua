@@ -81,12 +81,12 @@ minetest.register_chatcommand("delgo", {
 	description = "delete /go destination",
 	privs = {server=true},
 	func = function(name, param)
-		if GONETWORK[param] then
-			GONETWORK[param] = nil
-			write_gofile()
-			return true, "/go "..param.." removed"
+		if not GONETWORK[param] then
+			return false, "destination not found: " .. param
 		end
-		return false, "Something failed…"
+		GONETWORK[param] = nil
+		write_gofile()
+		return true, "/go "..param.." removed"
 	end,
 })
 
