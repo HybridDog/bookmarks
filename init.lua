@@ -3,14 +3,13 @@
 --		go										**************************************************
 -- ***********************************************************************************
 
+local load_time_start = minetest.get_us_time()
+
+
 local worldpath = minetest.get_worldpath()
 local file_path = worldpath.."/bookmarks_v2"
 
 local pos_to_string = vector.pos_to_string or minetest.pos_to_string
-
-local function rnd(za)
-	return math.floor(za*10+0.5)/10
-end
 
 -- saves GONETWORK to file
 local function write_gofile()
@@ -43,8 +42,13 @@ minetest.register_chatcommand("setgo", {
 		end
 		local np = target:getpos()
 		GONETWORK[param] = {
-			{x=rnd(np.x), y=rnd(np.y), z=rnd(np.z)},
-			{yaw=rnd(target:get_look_yaw()), pitch=rnd(target:get_look_pitch())}
+			vector.apply(np, function(za)
+				return math.floor(za * 10 + 0.5) / 10
+			end),
+			{
+				yaw = math.floor(target:get_look_horizontal() * 100 + .5) / 100,
+				pitch = math.floor(target:get_look_vertical() * 100 + .5) / 100
+			}
 		}
 		write_gofile()
 		return true, "/go "..param.." set"
@@ -64,10 +68,10 @@ minetest.register_chatcommand("go", {
 			target = second_choice
 			dest = GONETWORK[target]
 		end
-		minetest.get_player_by_name(name):moveto(dest[1])
-		print(dest[2].yaw)
-		--teleportee:set_look_yaw(dest[2].yaw)
-		--teleportee:set_look_pitch(dest[2].pitch)
+		local player = minetest.get_player_by_name(name)
+		player:moveto(dest[1])
+		player:set_look_horizontal(dest[2].yaw)
+		player:set_look_vertical(dest[2].pitch)
 		return true, "you're at "..target
 	end,
 })
@@ -93,11 +97,13 @@ minetest.register_chatcommand("listgo", {
 		if not next(GONETWORK) then
 			return false, "currently there are no destinations in GONETWORK"
 		end
-		local info = ""
+		local info,i = {},1
 		for go, coords in pairs(GONETWORK) do
-			info = info.."/go "..go.. " at "..pos_to_string(coords[1]).."\n"
+			info[i] = "/go "..go.. " at "..pos_to_string(coords[1])
+			i = i+1
 		end
-		return true, info
+		table.sort(info)
+		return true, table.concat(info, "\n")
 	end,
 })
 
@@ -110,22 +116,22 @@ if gonfile then
 	local contents = gonfile:read"*all"
 	io.close(gonfile)
 	if contents then
-		local lines = string.split(contents, "]\n")
-		for _,entry in ipairs(lines) do
-			local i, d = unpack(string.split(entry, ")["))
-			local goname, pos = unpack(string.split(i, "("))
+		local lines = contents:split"]\n"
+		for i = 1,#lines do
+			local entry = lines[i]
+			local i, d = unpack(entry:split")[")
+			local goname, pos = unpack(i:split"(")
 			local p = {}
 			local dir = {}
 			--p.x, p.y, p.z = string.match(coords, "^([%d.-]+)[, ] *([%d.-]+)[, ] *([%d.-]+)$")
-			p.x, p.y, p.z = unpack(string.split(pos, "|"))
-			dir.yaw, dir.pitch = unpack(string.split(d, ", "))
-			if p.x
-			and p.y
-			and p.z
+			p.x, p.y, p.z = unpack(pos:split"|")
+			p = vector.apply(p, tonumber)
+			dir.yaw, dir.pitch = unpack(d:split", ")
+			if p.x and p.y and p.z
 			and dir.yaw
 			and dir.pitch then
 				GONETWORK[goname] = {
-					{x = tonumber(p.x), y= tonumber(p.y), z = tonumber(p.z)},
+					p,
 					{yaw = tonumber(dir.yaw), pitch = tonumber(dir.pitch)}
 				}
 			end
@@ -136,3 +142,12 @@ if gonfile then
 end
 
 --]]
+
+
+local time = (minetest.get_us_time() - load_time_start) / 1000000
+local msg = "[bookmarks] loaded after ca. " .. time .. " seconds."
+if time > 0.01 then
+	print(msg)
+else
+	minetest.log("info", msg)
+end
