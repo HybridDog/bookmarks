@@ -19,6 +19,7 @@ local function write_gofile()
 end
 
 -- load GONETWORK from file
+local GONETWORK = {}
 local gonfile = io.open(file_path, "rb")
 if gonfile then
 	local contents = gonfile:read"*all"
@@ -28,8 +29,6 @@ if gonfile then
 		GONETWORK = minetest.deserialize(minetest.decompress(contents))
 	end
 end
-
-GONETWORK = rawget(_G, "GONETWORK") or {}
 
 minetest.register_chatcommand("setgo", {
 	params = "<name>",
