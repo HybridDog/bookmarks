@@ -80,7 +80,7 @@ minetest.register_chatcommand("delgo", {
 	params = "<name>",
 	description = "delete /go destination",
 	privs = {server=true},
-	func = function(name, param)
+	func = function(_, param)
 		if not GONETWORK[param] then
 			return false, "destination not found: " .. param
 		end
@@ -93,7 +93,7 @@ minetest.register_chatcommand("delgo", {
 minetest.register_chatcommand("listgo", {
 	params = "<goname>",
 	description = "list all go destinations",
-	func = function(name)
+	func = function()
 		if not next(GONETWORK) then
 			return false, "currently there are no destinations in GONETWORK"
 		end
@@ -111,14 +111,14 @@ minetest.register_chatcommand("listgo", {
 -- [[ legacy
 
 local oldpath = worldpath.."/bookmarks.go"
-local gonfile = io.open(oldpath, "r")
-if gonfile then
-	local contents = gonfile:read"*all"
-	io.close(gonfile)
+local old_gonfile = io.open(oldpath, "r")
+if old_gonfile then
+	local contents = old_gonfile:read"*all"
+	io.close(old_gonfile)
 	if contents then
 		local lines = contents:split"]\n"
-		for i = 1,#lines do
-			local entry = lines[i]
+		for k = 1,#lines do
+			local entry = lines[k]
 			local i, d = unpack(entry:split")[")
 			local goname, pos = unpack(i:split"(")
 			local p = {}
