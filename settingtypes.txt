@@ -1,0 +1,3 @@
+#    Load bookmarks from legacy files and rename those.
+#    For this to work, bookmarks needs to be a trusted mod.
+bookmarks.legacy (Load legacy files) bool false

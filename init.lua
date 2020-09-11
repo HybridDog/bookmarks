@@ -4,99 +4,91 @@
 -- ***********************************************************************************
 
 
-local worldpath = minetest.get_worldpath()
-local file_path = worldpath.."/bookmarks_v2"
+local storage = minetest.get_mod_storage()
+local bookmarks
 
--- saves GONETWORK to file
-local function write_gofile()
-	local f = io.open(file_path, "w")
-	f:write(minetest.compress(minetest.serialize(GONETWORK)))
-	io.close(f)
+-- Load the bookmarked locations from the storage
+bookmarks = minetest.deserialize(storage:get_string("bookmarks")) or {}
+
+local function save_bookmarks()
+	storage:set_string("bookmarks", minetest.serialize(bookmarks))
 end
 
--- load GONETWORK from file
-local GONETWORK = {}
-local gonfile = io.open(file_path, "rb")
-if gonfile then
-	local contents = gonfile:read"*all"
-	io.close(gonfile)
-	if contents
-	and contents ~= "" then
-		GONETWORK = minetest.deserialize(minetest.decompress(contents))
-	end
-end
 
 minetest.register_chatcommand("setgo", {
-	params = "<name>",
-	description = "set /go destination",
+	params = "<bookmark_name>",
+	description = "Set a /go destination",
 	privs = {server=true},
 	func = function(name, param)
-		local target = minetest.get_player_by_name(name)
-		if not target then
+		local player = minetest.get_player_by_name(name)
+		if not player then
 			return false, "Are you a player?"
 		end
-		local np = target:getpos()
-		GONETWORK[param] = {
+		if param == "" then
+			return false, "Missing bookmark name argument"
+		end
+		local np = player:get_pos()
+		bookmarks[param] = {
 			vector.apply(np, function(za)
 				return math.floor(za * 10 + 0.5) / 10
 			end),
 			{
-				yaw = math.floor(target:get_look_horizontal() * 100 + .5) / 100,
-				pitch = math.floor(target:get_look_vertical() * 100 + .5) / 100
+				yaw = math.floor(player:get_look_horizontal() * 100 + .5) / 100,
+				pitch = math.floor(player:get_look_vertical() * 100 + .5) / 100
 			}
 		}
-		write_gofile()
+		save_bookmarks()
 		return true, "/go "..param.." set"
 	end,
 })
 
 minetest.register_chatcommand("go", {
-	params = "<goname>",
-	description = "go to destination",
+	params = "<bookmark_name>",
+	description = "Go to a destination",
 	func = function(name, target)
-		local second_choice = next(GONETWORK)
-		if not second_choice then
-			return false, "currently there are no destinations in GONETWORK"
+		if not next(bookmarks) then
+			return false, "Currently there are no destinations bookmarked"
 		end
-		local dest = GONETWORK[target]
+		local dest = bookmarks[target]
 		if not dest then
-			target = second_choice
-			dest = GONETWORK[target]
+			return false, "Bookmark not found: \"" .. target .. "\""
 		end
 		local player = minetest.get_player_by_name(name)
+		if not player then
+			return false, "Are you a player?"
+		end
 		player:moveto(dest[1])
 		player:set_look_horizontal(dest[2].yaw)
 		player:set_look_vertical(dest[2].pitch)
-		return true, "you're at "..target
+		return true, "You are at \"" .. target .. "\""
 	end,
 })
 
 minetest.register_chatcommand("delgo", {
-	params = "<name>",
-	description = "delete /go destination",
+	params = "<bookmark_name>",
+	description = "Delete a /go destination",
 	privs = {server=true},
 	func = function(_, param)
-		if not GONETWORK[param] then
-			return false, "destination not found: " .. param
+		if not bookmarks[param] then
+			return false, "Destination not found: " .. param
 		end
-		GONETWORK[param] = nil
-		write_gofile()
+		bookmarks[param] = nil
+		save_bookmarks()
 		return true, "/go "..param.." removed"
 	end,
 })
 
+local listgo_entry_form = minetest.colorize("#BAEDEF", "/go %s") .. " at %s"
 minetest.register_chatcommand("listgo", {
-	params = "<goname>",
-	description = "list all go destinations",
+	description = "List all bookmarked destinations",
 	func = function()
-		if not next(GONETWORK) then
-			return false, "currently there are no destinations in GONETWORK"
+		if not next(bookmarks) then
+			return false, "Currently there are no destinations bookmarked"
 		end
-		local info,i = {},1
-		for go, coords in pairs(GONETWORK) do
-			info[i] = "/go " .. go .. " at " ..
-				minetest.pos_to_string(coords[1])
-			i = i+1
+		local info = {}
+		for go, coords in pairs(bookmarks) do
+			info[#info+1] = listgo_entry_form:format(go,
+				minetest.pos_to_string(vector.round(coords[1])))
 		end
 		table.sort(info)
 		return true, table.concat(info, "\n")
@@ -104,13 +96,17 @@ minetest.register_chatcommand("listgo", {
 })
 
 
--- [[ legacy
+-- Legacy code for backwards-compatibility
 
-local oldpath = worldpath.."/bookmarks.go"
-local old_gonfile = io.open(oldpath, "r")
-if old_gonfile then
+local function load_v1_bookmarks(secure_env)
+	local worldpath = minetest.get_worldpath()
+	local oldpath = worldpath .. "/bookmarks.go"
+	local old_gonfile = secure_env.io.open(oldpath, "r")
+	if not old_gonfile then
+		return
+	end
 	local contents = old_gonfile:read"*all"
-	io.close(old_gonfile)
+	secure_env.io.close(old_gonfile)
 	if contents then
 		local lines = contents:split"]\n"
 		for k = 1,#lines do
@@ -126,15 +122,46 @@ if old_gonfile then
 			if p.x and p.y and p.z
 			and dir.yaw
 			and dir.pitch then
-				GONETWORK[goname] = {
+				bookmarks[goname] = {
 					p,
 					{yaw = tonumber(dir.yaw), pitch = tonumber(dir.pitch)}
 				}
 			end
 		end
 	end
-	write_gofile()
-	os.remove(oldpath)
+	save_bookmarks()
+	assert(secure_env.os.rename(oldpath, worldpath .. "/old_bookmarks.go"))
 end
 
---]]
+local function load_v2_bookmarks(secure_env)
+	local worldpath = minetest.get_worldpath()
+	local file_path = worldpath .. "/bookmarks_v2"
+	local gonfile = secure_env.io.open(file_path, "rb")
+	if not gonfile then
+		return
+	end
+	local contents = gonfile:read"*all"
+	secure_env.io.close(gonfile)
+	if contents
+	and contents ~= "" then
+		local v2_bookmarks = minetest.deserialize(minetest.decompress(contents))
+		if type(v2_bookmarks) == "table" then
+			for k, v in pairs(v2_bookmarks) do
+				bookmarks[k] = v
+			end
+		end
+	end
+	save_bookmarks()
+	assert(secure_env.os.rename(file_path, worldpath .. "/old_bookmarks_v2"))
+end
+
+if minetest.settings:get_bool("bookmarks.legacy", false) then
+	local secure_env = minetest.request_insecure_environment()
+	if not secure_env then
+		minetest.log("error",
+			"bookmarks legacy code requires a trusted environment")
+	else
+		load_v1_bookmarks(secure_env)
+		load_v2_bookmarks(secure_env)
+	end
+end
