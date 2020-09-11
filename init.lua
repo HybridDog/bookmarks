@@ -7,8 +7,6 @@
 local worldpath = minetest.get_worldpath()
 local file_path = worldpath.."/bookmarks_v2"
 
-local pos_to_string = vector.pos_to_string or minetest.pos_to_string
-
 -- saves GONETWORK to file
 local function write_gofile()
 	local f = io.open(file_path, "w")
@@ -96,7 +94,8 @@ minetest.register_chatcommand("listgo", {
 		end
 		local info,i = {},1
 		for go, coords in pairs(GONETWORK) do
-			info[i] = "/go "..go.. " at "..pos_to_string(coords[1])
+			info[i] = "/go " .. go .. " at " ..
+				minetest.pos_to_string(coords[1])
 			i = i+1
 		end
 		table.sort(info)
