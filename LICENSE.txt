@@ -1,1 +1,3 @@
-idk, it's changed from the one used at globis' server
+MIT
+The original mod has been licensed under WTFPL:
+	https://forum.minetest.net/viewtopic.php?p=31723&sid=b7cd19a9d6114504acaa2f1ed7bb0c45#p31723

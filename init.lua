@@ -3,8 +3,6 @@
 --		go										**************************************************
 -- ***********************************************************************************
 
-local load_time_start = minetest.get_us_time()
-
 
 local worldpath = minetest.get_worldpath()
 local file_path = worldpath.."/bookmarks_v2"
@@ -141,12 +139,3 @@ if old_gonfile then
 end
 
 --]]
-
-
-local time = (minetest.get_us_time() - load_time_start) / 1000000
-local msg = "[bookmarks] loaded after ca. " .. time .. " seconds."
-if time > 0.01 then
-	print(msg)
-else
-	minetest.log("info", msg)
-end
