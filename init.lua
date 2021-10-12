@@ -66,7 +66,7 @@ minetest.register_chatcommand("go", {
 		if not player then
 			return false, "Are you a player?"
 		end
-		player:moveto(dest[1])
+		player:move_to(dest[1])
 		player:set_look_horizontal(dest[2].yaw)
 		player:set_look_vertical(dest[2].pitch)
 		return true, "You are at \"" .. target .. "\""
