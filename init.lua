@@ -14,9 +14,13 @@ function bookmarks.save_bookmarks()
 	storage:set_string("bookmarks", minetest.serialize(bookmarks.locations))
 end
 
+local mod_path = minetest.get_modpath(minetest.get_current_modname())
 if minetest.settings:get_bool("bookmarks.legacy", false) then
-	local mod_path = minetest.get_modpath(minetest.get_current_modname())
 	dofile(mod_path .. "/legacy.lua")
+end
+
+if minetest.global_exists("unified_inventory") then
+	dofile(mod_path .. "/unified_inventory_gui.lua")
 end
 
 

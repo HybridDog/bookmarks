@@ -1,5 +1,6 @@
 globals = {"bookmarks"}
 read_globals = {
 	"minetest",
-	"vector"
+	"vector",
+	"unified_inventory"
 }
